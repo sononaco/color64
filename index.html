@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Color64 BBS</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<script src="/js/jquery-1.7.2.min.js"></script>
+		<script src="/js/jquery.mousewheel-min.js"></script>
+		<script src="/js/jquery.terminal-0.4.17.js"></script>
+		<link href="/css/jquery.terminal.css" rel="stylesheet"/>
+		<style type="text/css">
+			
+			.cmd
+			{
+				//text-transform: uppercase;
+			}
+			
+			body
+			{
+				background-color: #000;
+			}
+			
+			#color64
+			{
+				width: 500px;
+				height: 286px;
+				border: 1px solid #aaa;
+				border-radius: 5px;
+				padding: 20px;
+				margin: 30px auto;
+			}
+			
+			span.cursor.box
+			{
+				border: 3px solid;
+				height: 20px;
+				margin-left: -7px;
+				margin-top: -6px;
+				width: 12px;
+			}
+			
+			span.cursor.imgbox
+			{
+				border: 3px solid;
+				height: 20px;
+				margin-left: -7px;
+				margin-top: -6px;
+				width: 12px;
+			}
+			
+			.center-text
+			{
+				text-align: center;
+				margin: 0 auto;
+			}
+			
+			.terminal, .terminal .terminal-output, .terminal .terminal-output div, .terminal .terminal-output div div, .cmd, .terminal .cmd span, .terminal .cmd div
+			{
+				line-height: 13px;
+			}
+			
+			.mainmenu
+			{
+				border: 1px solid #0f0;
+			}
+			
+			.credits
+			{
+				text-align: center;
+				font-family: monospace;
+				color: #aaa;
+			}
+			
+			a:link
+			{
+				color: #89C7AB;
+			}
+			
+			a:visited
+			{
+				color: #5E91F3;
+			}
+			
+			a.maillink
+			{
+				color: #000;
+			}
+			
+			p.hidden
+			{
+				display: none; // just for the spiders
+			}
+			
+/*			span.cursor.box:before
+			{
+				content: '';
+				position: relative;
+				display: block;
+				width: 20px;
+				height: 24px;
+				border: 2px solid;
+			}*/
+			
+/*				span.cursor.box.inverted:before
+				{
+					background-color: #000;
+				}*/
+			
+				span.cursor.box.inverted
+				{
+					background-color: #000;
+					color: #aaa;
+				}
+			
+		</style>
+		<script>
+			jQuery(document).ready(function($) {
+				
+				window['activeColor'] = Math.floor(Math.random()*8);
+				
+				colors = new Array(
+//					"#F375B1",
+//					"#FFB67A",
+//					"#FFDE8D",
+//					"#618EB4",
+//					"#9FDFA3",
+//					"#9898FE",
+//					"#50B7CE",
+//					"#FFFFFF"
+					'#955299',	// purple
+					'#7B2917',	// red
+					'#934B23',	// orange
+					'#F1E37C',	// yellow
+					'#FFFFFF',	// white
+					'#89C7AB',	// cyan
+					'#5E91F3',	// lt. blue
+					'#162F8A'	// blue
+				);
+					
+				$('#about').html(_c('This is an homage to ','','html') + _c('Color64 BBS', 'rainbow','html') + _c('','','html') + _c('','','html') + _c('','','html') + _c('','','html') + _c(' by Greg Pfountz', '', 'html'));
+				$('#wip').html(_c('This is very much a work in progress! Any help is appreciated. <br />It is my goal to get this functioning exactly like the original Color64 BBS.','','html'));
+				$('#update').html(_c('Update 8-Aug-2012: ','','html') + _c('Got logoff somewhat working. It looks like it works but does nothing but freezes the terminal requiring you to log back in. So I guess it does work. [R]ead messages is still getting there.\n','','html') + _c('Update 5-Aug-2012: ','','html') + _c('Login is fixed. You can now read messages and view the menu. Process has started on [r]eading messages. Any help is appreciated.\n','','html'));
+				$('#info').html(_c('It is written entirely using jQuery, HTML and PHP <br />with the awesome <a href="http://terminal.jcubic.pl/">jQuery Terminal plugin</a> by Jakub Jankiewicz', '', 'html'));
+				$('#thanks').html(_c('Thanks to Greg Pfountz (Daily Exchange) and Sam Lewit (Terrapin Transit BBS) for <br />inspiring me to waste a good portion of my youth and now a good portion of middle age <br />(re)-writing this fabulous piece of software', '', 'html'));
+				$('#contact').html(_c('If you would like to contribute to this project please contact me at ','','html') + _c('<a href="mailto:sysop@color64.com" class="maillink">sysop@color64.com</a>','reverseAdvance','html'));
+				$('#refresh').html(_c('Yes, refresh it. All of the colors will change ;)','rainbow','html'));
+				
+				$('#color64').terminal(function(cmd, term){
+					
+					switch(cmd)
+					{
+						case "?":
+							
+							getMemberList(term, true);
+							
+						break;
+						
+						case 'new':
+							term.clear();
+							term.push(function(name, term){
+								if(name.length > 0)
+								{
+									$.ajax({
+										type: 'POST',
+										url: 'lib/ajax.php',
+										history: false,
+										data: 'action=dupecheck&name=' + name,
+										success: function(r) {
+											if(r.result == true)
+											{
+												term.echo('\n' + _c('Checking membership list...' + Array(r.count).join('.'), 'rainbow'));
+
+												if(r.dupe > 0)
+												{
+													term.echo(_e('Name already exists (#' + r.dupe + ')!'));
+													term.echo(_c('\nEnter your membership number or NEW\n(? to list all membership numbers)\n'));
+													term.pop();
+												} else {
+													term.push(function(pw,term){
+														if(pw.length < 3)
+														{
+															term.echo(_e('Minimum 3 characters!'));
+															setPassword(term);
+														} else if(pw.length > 9) {
+															term.echo(_e('Maximum 9 characters!'));
+															setPassword(term);
+														} else {
+															term.clear();
+															
+															$.ajax({
+																type: 'POST',
+																url: 'lib/ajax.php',
+																data: 'action=newUser&u=' + name + '&p=' + pw,
+																success: function(rsp) {
+																	if(rsp.result == true)
+																	{
+																		term.echo(_c('Welcome ' + name.toUpperCase() + '!'));
+																		term.echo(_c('Your membership number is ' + rsp.memno + ''));
+																		term.echo(_c(pw.toUpperCase(),'yourPWis')).css('color', _c('', 'currentColor'));
+																		term.echo(_c('\nPlease make a note of this password \ninformation, especially your new \nmembership number. You must always \nuse this membership number followed \nby your password whenever logging \ninto this BBS.', 'current'));
+																		term.echo(_c('\nNow I need a little information for \nmy records. Please be honest in \nanswering the following questions.\n\n'));
+																		
+																		registration(term,rsp.memno);
+																	}
+																}
+															})
+														}
+													}, {
+														prompt: '> ',
+														name: 'setpass',
+														onStart: function(){
+															setPassword(term);
+														}
+													});
+												}
+											}
+										}
+									});
+								}
+							}, {
+								prompt: '> ',
+								name: 'firstlast',
+								onStart: enterName(term)
+							});
+						break;
+						
+						default:
+							if(!isNaN(parseFloat(cmd)) && isFinite(cmd))
+							{
+								term.push(function(enterpw,term) {
+								
+									term.echo(_c('\nChecking password...\n\n'));
+								
+									$.ajax({
+										type: 'POST',
+										url: 'lib/ajax.php',
+										data: 'action=login&u=' + cmd + '&p=' + enterpw,
+										success: function(rsp) {
+											if(rsp.result == true)
+											{
+												term.pause();
+												window.setTimeout(function(){
+													term.resume();
+													term.pop();
+													term.clear();
+													term.echo(_c('[:r:]Your Name   :[:/r:][:plain:] ' + rsp.data.name + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Caller No.  :[:/r:][:plain:] ' + rsp.data.caller_no + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Times Called:[:/r:][:plain:] ' + rsp.data.no_calls + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Last Called :[:/r:][:plain:] ' + '07/31/12' + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Access Level:[:/r:][:plain:] ' + rsp.data.lvl+ '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Blks Dnlded :[:/r:][:plain:] ' + rsp.data.dnlds + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Blks Uplded :[:/r:][:plain:] ' + rsp.data.uplds + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Blks Credit :[:/r:][:plain:] ' + 100 + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]Last Caller :[:/r:][:plain:] ' + rsp.data.last_caller + '[:/plain:]', 'reverseInlineAdvance'));
+													term.echo(_c('[:r:]New Messages:[:/r:][:plain:] ' + rsp.data.msgs + '[:/plain:]', 'reverseInlineAdvance'));
+
+													term.echo(_c('\nChecking your mailbox...\n\n'));
+													term.echo(_c('Sorry, your mailbox is empty\n\n'));
+
+													mainMenu(term);
+												}, 200);
+												
+											} else {
+												term.echo(_e('Invalid password ... try again'));
+												term.echo(_c('\nEnter your membership number or NEW\n(? to list all membership numbers)\n'));
+												term.pop();
+											}
+										}
+									})
+								},{
+									prompt: '> ',
+									onStart: function(){term.echo(_c('\nEnter your password\n\n')); console.log('inited'); term.set_mask(true); },
+									onExit: function() { term.set_mask(false); }
+								});
+							}
+						break;
+					}
+					
+				}, {
+					greetings: _c('Enter your membership number or NEW\n(? to list all membership numbers)\n'),
+					prompt: '> ', 
+					name: 'login',
+					width: 500,
+					height: 300
+				})
+			});
+			
+			function enterName(term)
+			{
+				term.echo(_c("Enter your name (First and Last)\n\n"));
+			}
+			
+			function setPassword(term)
+			{
+				term.echo(_c("\nEnter a 3 to 9 character password\n\n"));
+			}
+			
+			function getMemberList(term, prompt)
+			{
+				var d = new Date();
+				var asOf = d.getMonth() + '/' + d.getDate() + '/' + d.getYear();
+
+				term.echo(_c('\nMembership list\n\nMembership list as of ' + asOf + '\n\n'));
+
+				$.ajax({
+					type: 'POST',
+					url: 'lib/ajax.php',
+					history: false,
+					data: 'action=memberlist',
+					success: function(r) {
+						if(r.result == true)
+						{
+							$.each(r.list, function(k,v){
+								term.pause();
+								term.echo(_c(k+': '+v+'\n', 'same'));
+								term.resume();
+							});
+
+							if(prompt == true)
+							{
+								term.echo(_c('\nEnter your membership number or NEW\n(? to list all membership numbers)\n'));
+							} else {
+								term.echo('\n');
+							}
+						}
+					}
+				});
+			}
+			
+			/**
+			 * type = nothing (next color), rainbow = rainbow string, same = same string
+			 */
+			
+			function _c(string, type, ret)
+			{
+				if(ret == '')
+				{
+					ret = 'hex';
+				}
+				switch(type)
+				{
+					case 'rainbow':
+						out = '';
+						for(i=0;i<string.length;i++)
+						{
+							if(window['activeColor'] + 1 >= colors.length)
+							{
+								window['activeColor'] = 0;
+							} else {
+								window['activeColor']++;
+							}
+
+							if(ret == 'html')
+							{
+								out+='<span style="color:' + colors[window['activeColor']] + ';">' + string.substring(i,i+1) + '</span>';
+							} else {
+								out+='[[b;' + colors[window['activeColor']] + ';#000]' + string.substring(i,i+1) + ']';
+							}
+						}
+						return out;
+					break;
+					
+					case 'same':
+						return '[[b;' + colors[window['activeColor']] + ';#000]' + string + ']';
+					break;
+					
+					case 'nexthex':
+
+						if(window['activeColor'] + 1 >= colors.length)
+						{
+							window['activeColor'] = 0;
+						} else {
+							window['activeColor']++;
+						}
+
+						return colors[window['activeColor']];
+					break;
+					
+					case "yourPWis":
+
+						if(window['activeColor'] + 1 >= colors.length)
+						{
+							window['activeColor'] = 0;
+						} else {
+							window['activeColor']++;
+						}
+
+						open = '[[b;' + colors[window['activeColor']] + ';#000]And your password is ]';
+
+						open+='[[b;#000;' + colors[window['activeColor']] + ']' + string + ']';
+
+						return open;
+
+					break;
+
+					case 'currentHex':
+						return colors[window['activeColor']];
+					break;
+					
+					case 'current':
+						return '[[b;' + colors[window['activeColor']] + ';#000]' + string + '] ';
+					break;
+					
+					case 'reverseCurrent':
+
+						return '[[b;#000;' + colors[window['activeColor']] + ']' + string + '] ';
+
+					break;
+
+					case 'reverseAdvance':
+
+						if(window['activeColor'] + 1 >= colors.length)
+						{
+							window['activeColor'] = 0;
+						} else {
+							window['activeColor']++;
+						}
+						
+						if(ret == 'html')
+						{
+							return '<span style="background-color: ' + colors[window['activeColor']] + '; color: #000;">' + string + '</span>';
+						} else {
+							return '[[b;#000;' + colors[window['activeColor']] + ']' + string + '] ';
+						}
+
+					break;
+
+					case 'reverseInlineAdvance':
+
+						// intention here is to invert the [r] tags and leave everything else alone.
+
+						if(window['activeColor'] + 1 >= colors.length)
+						{
+							window['activeColor'] = 0;
+						} else {
+							window['activeColor']++;
+						}
+
+						a = string.replace('[:r:]', '[[b;#000;' + colors[window['activeColor']] + ']');
+						a = a.replace('[:/r:]', ']');
+						a = a.replace('[:plain:]', '[[b;' + colors[window['activeColor']] + ';#000]');
+						a = a.replace('[:/plain:]', ']');
+
+						return a;
+						
+					break;
+
+					case 'reverseInlineCurrent':
+
+						a = string.replace('[:r:]', '[[b;#000;' + colors[window['activeColor']] + ']');
+						a = a.replace('[:/r:]', ']');
+						a = a.replace('[:plain:]', '[[b;' + colors[window['activeColor']] + ';#000]');
+						a = a.replace('[:/plain:]', ']');
+
+						return a;
+						
+					break;
+					
+					default:
+
+						if(window['activeColor'] + 1 >= colors.length)
+						{
+							window['activeColor'] = 0;
+						} else {
+							window['activeColor']++;
+						}
+
+	//					$('.prompt').css('color', colors[window['activeColor']]);
+	//					$('.cursor').css('background-color', colors[window['activeColor']]);
+						
+						if(ret == 'html')
+						{
+							return '<span style="color:' + colors[window['activeColor']] + ';">' + string + '</span>';
+						} else {
+							return '[[b;' + colors[window['activeColor']] + ';#000]' + string + ']';
+						}
+					break;
+				}
+			}
+			
+			function _e(msg)
+			{
+				return '\n' + '[[b;#000;#FFB67A]' + msg + ']' + '\n\n'
+			}
+			
+			function registration(term,memno)
+			{
+				regData = new Object();
+				
+				term.push(function(reg_realname,term){
+					//saveReg(regData, 'realname',realname);
+					regData.realname = reg_realname;
+					term.push(function(reg_address,term)
+					{
+						//term.pop(realname);
+						regData.address = reg_address;
+						term.push(function(reg_city,term){
+							//term.pop(address);
+							regData.city = reg_city;
+							
+							term.push(function(reg_state,term){
+								//term.pop(city);
+								regData.state = reg_state;
+								term.push(function(reg_zip,term){
+									//term.pop(city);
+									regData.zip = reg_zip;
+									term.push(function(reg_phone,term){
+										regData.phone = reg_phone;
+										term.push(function(reg_computer,term){
+											regData.computer = reg_computer;
+											
+											term.echo(_c('\n\n[:r:]Real Name >[:/r:][:plain:] ' + regData.realname + '[:/plain:]', 'reverseInlineAdvance'));
+											term.echo(_c('[:r:]Address   >[:/r:][:plain:] ' + regData.address + '[:/plain:]', 'reverseInlineCurrent'));
+											term.echo(_c('[:r:]City      >[:/r:][:plain:] ' + regData.city + '[:/plain:]', 'reverseInlineCurrent'));
+											term.echo(_c('[:r:]State     >[:/r:][:plain:] ' + regData.state + '[:/plain:]', 'reverseInlineCurrent'));
+											term.echo(_c('[:r:]Zip       >[:/r:][:plain:] ' + regData.zip + '[:/plain:]', 'reverseInlineCurrent'));
+											term.echo(_c('[:r:]Phone #   >[:/r:][:plain:] ' + regData.phone + '[:/plain:]', 'reverseInlineCurrent'));
+											term.echo(_c('[:r:]Computer  >[:/r:][:plain:] ' + regData.computer + "[:/plain:]\n\n", 'reverseInlineCurrent'));
+											
+											
+											term.push(function(reg_correct,term){
+												
+												$('span.cursor').removeClass('box');
+												
+												
+												
+												if(reg_correct == "n")
+												{
+													term.echo('\n');
+													registration(term,memno);
+												} else if(reg_correct == "y") {
+													// save
+													//term.echo(_c('\n\nSaving.......\n\n', 'rainbow'));
+													
+													term.pause();
+													$.ajax({
+														type: 'POST',
+														url: 'lib/ajax.php',
+														history: false,
+														data: 'action=savereg&id=' + memno + '&name=' + regData.realname + '&address=' + regData.address + '&city=' + regData.city + '&state=' + regData.state + '&zip=' + regData.zip + '&phone=' + regData.phone + '&computer=' + regData.computer,
+														success: function(r) {
+															term.resume();
+															if(r.result == true)
+															{
+																term.echo('\n');
+															}
+														}
+													});
+													
+													
+													term.echo(_c('\n\nThis file will be sent to all new \ncallers immeditely after filling out \nthe application.  It is a good place to \nput your validation policy or BBS \nrules.\n'));
+													
+//													term.disable('reg_correct');
+//													term.disable('reg_computer');
+//													term.disable('reg_phone');
+//													term.disable('reg_state');
+//													term.disable('reg_city');
+//													term.disable('reg_address');
+//													term.disable('reg_realname');
+													
+													mainMenu(term);
+												}
+												
+											}, {
+												prompt: _c('Is this correct? '),
+												name: 'reg_correct',
+												onStart: function(){ $('span.cursor').addClass('box'); }
+													// {'content': '{ }', 'display':'block', 'float':'right', 'width':'10px', 'height': '14px;', 'border': '2px solid ' + _c('','currentHex') + "'" }
+												//	}
+											});
+											
+										regData.computer = reg_computer;
+										}, {
+											prompt: _c('Computer  >', 'reverseCurrent'),
+											name: 'reg_computer'
+										});	
+									}, {
+										prompt: _c('Phone #   >', 'reverseCurrent'),
+										name: 'reg_zip'
+									});
+								}, {
+									prompt: _c('Zip Code  >', 'reverseCurrent'),
+									name: 'reg_zip'
+								});
+							}, {
+								prompt: _c('State     >', 'reverseCurrent'),
+								name: 'reg_state'
+							});
+						}, {
+							prompt: _c('City      >', 'reverseCurrent'),
+							name: 'reg_city'
+						});
+					}, {
+						prompt: _c('Address   >', 'reverseCurrent'),
+						name: 'reg_address'
+					});
+				}, {
+					prompt: _c('Real Name >', 'reverseAdvance'),
+					name: 'reg_realname'
+				});
+			}
+			
+			function mainMenu(term)
+			{
+				term.push(function(cmd, term){
+					switch(cmd)
+					{
+						case "?":
+							term.clear();
+							showMainMenu(term);
+						break;
+						
+						case "r":
+							term.echo(_c('\n\nRead messages\n'));
+					
+							term.echo('\nThere are 1 new messages\n\n');
+
+							term.echo(_c(' #  Category. . . . . . . . . Active/New Messages','reverseAdvance'));
+							term.echo('\n');
+							term.echo(_c('[:r:] A [:/r:][:plain:] General Interest . . . . . . . 2/1[:/plain:]', 'reverseInlineAdvance'));
+							term.echo(_c('[:r:] B [:/r:][:plain:] BBS Announcements. . . . . . . 0/0[:/plain:]', 'reverseInlineAdvance'));
+							term.echo(_c('[:r:] C [:/r:][:plain:] Color64.com Development. . . . 0/0[:/plain:]', 'reverseInlineAdvance'));
+							term.echo(_c('[:r:] D [:/r:][:plain:] Getting Started. . . . . . . . 0/0[:/plain:]', 'reverseInlineAdvance')) ;
+
+							readMessages(term);
+						break;
+						
+						case "m":
+							getMemberList(term, false);
+						break;
+						
+						case "o":
+							term.push(function(logout,term){
+								if(logout == 'n') {
+									term.pop();
+								}
+								if(logout == 'y'){
+									term.echo(_c('\n                   You are caller number 3 '));
+									term.echo(_c('                You were online 1 minutes and ','same'));
+									term.echo(_c('                  have 56 minutes left today\n\n','same'));
+
+									term.echo(_c('This message file will be sent to all callers when they log off ','same'));
+									term.echo(_c('   It will be sent directly after caller stats are displayed ','same'));
+									term.echo(_c('          and just before the line is disconnected ','same'));
+
+									term.echo(_c('\n\n                       Disconnected!\n\n', 'rainbow'));
+									term.pause();
+								}
+							},{
+								prompt: _c('\nLogout\n\nAre you sure (Y/N)') ,
+								name: 'logout_action'
+							});
+						break;
+						
+						case "p":
+							postMessage(term, false);
+						break;
+						
+						case "f":
+							sendeedback(term, false);
+						break;
+						
+						default:
+							term.echo('\n\n');
+						break;
+					}
+					
+					//term.set_prompt(_mm());
+				}, {
+					prompt: _mm(),
+					onStart: function(){ /* $('span.cursor').addClass('box');*/ $('span.cursor').addClass('imgbox-foobar'); },
+					name: 'main_menu',
+					keyup: function(cmd){ console.log('up' + cmd); }
+				});
+			}
+			
+			function sendfeedback(term)
+			{
+				term.push(function(cmd,term){
+					term.echo(_('Send Feedback to SYSOP (Y/N)? '));
+				});
+			}
+			
+			function readMessages(term)
+			{
+				term.push(function(readcmd,term) {
+					catNoorReturnAll(term);
+				},{
+					prompt: _c('\n\nCategory # or RETURN form ALL? ') ,
+					name: 'msg_action'
+				});
+			}
+			
+			function catNoorReturnAll(term)
+			{
+				term.push(function(cmd,term) {
+					term.echo(_c('\n[:r:]Low Msg   :[:/r:] [:plain:]1[:/plain:]','reverseInlineAdvance'));
+					term.echo(_c('[:r:]High Msg  :[:/r:] [:plain:]2[:/plain:]','reverseInlineAdvance'));
+					term.echo(_c('[:r:]Last Read :[:/r:] [:plain:]1[:/plain:]','reverseInlineAdvance'));
+				},{
+					prompt: _c('\n\nStarting with message (2) > ')
+				});
+			}
+			
+			function _mm()
+			{
+				l = _c('', 'nexthex');
+				m = _c('', 'nexthex');
+				c = _c('', 'nexthex');
+				return '[[;#000;' + l + ';]&#91;Time left=59&#93;] ' + '[[;#000;' + m + ';]<?=Menu>] ' + '[[;#000;' + c + ';]COMMAND?]' + ' ';
+			}
+			
+			function showMainMenu(term)
+			{
+				var d = new Date();
+				var mDate = d.getMonth() + '/' + d.getDate() + '/' + d.getYear() + ' - ' + d.getHours() + ':' + d.getMinutes();
+				
+				term.echo('           ' + _c(mDate, 'reverseAdvance') + '\n\n');
+				term.echo('        [[;#F1E37C;#000]Your BBS Command Menu]' + '\n');
+				term.echo('[[;#F1E37C;#000]Ctrl-S(HOME)=Pause Ctrl-P(SPACE)=Abort]'+ '\n');
+				term.echo('\n               [[;#F1E37C;#000]Messages]');
+				term.echo(' [[;#000;#5E91F3] &#91;R&#93;ead     &#91;Q&#93;uickscan    &#91;F&#93;eedback ]').addClass('drop-shadow-blue-corner');
+				term.echo(' [[;#000;#5E91F3] &#91;P&#93;ost        &#91;E&#93;dit       &#91;S&#93;cratch ]').addClass('drop-shadow-blue-bottom');
+				
+				term.echo('\n                 [[;#F1E37C;#000]Files]');
+				term.echo(' [[;#000;#5E91F3] &#91;D&#93;ownload  &#91;N&#93;ew Dnlds     &#91;U&#93;pload ]').addClass('drop-shadow-blue-corner');
+				term.echo(' [[;#000;#5E91F3] &#91;$&#93;Dir  &#91;#&#93;Change Dir   &#91;T&#93;ext Files ]').addClass('drop-shadow-blue-right');
+				term.echo(' [[;#000;#5E91F3] &#91;H&#93;elp Files    &#91;I&#93;nfo   &#91;X&#93;Protocol ]').addClass('drop-shadow-blue-right');
+				term.echo(' [[;#000;#5E91F3] &#91;M&#93;embership List     &#91;W&#93;elcome Msgs ]').addClass('drop-shadow-blue-bottom');
+				
+				term.echo('\n                 [[;#F1E37C;#000]Other]');
+				term.echo(' [[;#000;#5E91F3] &#91;O&#93;ff     &#91;C&#93;hat    &#91;A&#93;lter Password ]').addClass('drop-shadow-blue-corner');
+				term.echo(' [[;#000;#5E91F3] &#91;G&#93;raphics    &#91;V&#93;ote     &#91;B&#93;aud Rate ]').addClass('drop-shadow-blue-bottom');
+				
+				term.echo('\n                 [[;#F1E37C;#000]Note]');
+				term.echo(' [[;#000;#5E91F3]   You will not be able to send any   ]').addClass('drop-shadow-blue-corner');
+				term.echo(' [[;#000;#5E91F3]   private messages until after you   ]').addClass('drop-shadow-blue-right');
+				term.echo(' [[;#000;#5E91F3]   have sent in a $$$ contribution!   ]').addClass('drop-shadow-blue-bottom');
+				
+				term.echo(" ");
+				term.echo(" ");
+				
+				return true;
+				
+				/**
+				'#955299',	// purple
+				'#7B2917',	// red
+				'#934B23',	// orange
+				'#F1E37C',	// yellow
+				'#FFFFFF',	// white
+				'#89C7AB',	// cyan
+				'#5E91F3',	// lt. blue
+				'#162F8A'	// blue
+				*/
+			}
+			
+			function saveReg(regData,field,data,action)
+			{	
+				if(action == 'review')
+				{
+					// dump it
+					console.log(regData);
+				} else if (action == 'save') {
+					// ajax save it
+				} else {
+					// save it
+					if(field == '')
+					{
+						return false;
+					}
+					console.log('saving ' + data);
+					regData[field] = data;
+					return regData;
+				}
+			}
+			
+		</script>
+	</head>
+	<body>
+		<div id="color64"></div>
+		<p class="credits" id="about"></p>
+		<p class="credits" id="wip"></p>
+		<p class="credits" id="info"></p>
+		<p class="credits" id="update"></p>
+		<p class="credits" id="thanks"></p>
+		<p class="credits" id="contact"></p>
+		<p class="credits" id="refresh"></p>
+		
+		<p class="hidden">
+			This is an homage to Color64 BBS by Greg Pfountz
+
+This is very much a work in progress! Any help is appreciated.
+It is my goal to get this functioning exactly like the original Color64 BBS.
+
+It is written entirely using jQuery, HTML and PHP
+with the awesome jQuery Terminal plugin by Jakub Jankiewicz
+
+Thanks to Greg Pfountz (Daily Exchange) and Sam Lewit (Terrapin Transit BBS) for
+inspiring me to waste a good portion of my youth and now a good portion of middle age
+(re)-writing this fabulous piece of software
+
+If you would like to contribute to this project please contact me at sysop@color64.com
+
+Yes, refresh it. All of the colors will change ;)
+		</p>
+		<p class="credits">
+			What will it do? Not much for now. You can register, login, get a membership list, get the main menu. That's about it. 
+		</p>
+		<p class="credits">
+			I write this in my spare time when I'm bored and the code is sloppy. <br />I'm using a copy of Color64 running on an old MacBook running Power64.<br />I would love some help. Please shoot me a line if you are interested.
+		</p>
+	</body>
+</html>
